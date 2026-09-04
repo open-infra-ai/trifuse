@@ -31,7 +31,7 @@ from trifuse.reference import gated_mlp as reference_gated_mlp
 from trifuse.reference import rmsnorm as reference_rmsnorm
 from trifuse.reference import rope as reference_rope
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 
 __all__ = [
     "PerformanceProfile",
