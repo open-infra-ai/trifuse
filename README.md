@@ -1,4 +1,4 @@
-# TriFuse — Triton Fused Ops
+# trifuse
 
 > 📚 Portfolio map: https://github.com/open-infra-ai/open-infra-ai
 
