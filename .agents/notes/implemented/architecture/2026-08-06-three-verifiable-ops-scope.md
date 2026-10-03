@@ -37,5 +37,9 @@ autotuner 基建。删除双语文档站、OpenSpec 等外围脚手架，收敛�
 
 ## Verification
 
+性能计量和错误输出门禁由
+[两投影与正确性计时笔记](../testing/2026-10-04-benchmark-correctness-and-workload.md)
+补充；此处的历史测试数量不作为当前数量或性能结论。
+
 `pyproject.toml` 与 `trifuse/` 源码仅含三个算子入口；
 `torch.ops.trifuse::*` 命名空间在测试中可枚举。
