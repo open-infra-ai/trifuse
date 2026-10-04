@@ -158,11 +158,9 @@ npm run verify-archived            # 归档封印：头部布局、manifest 哈�
 npm run verify-notes               # 以上三线串跑（CI 用这个）
 npm run archive-agent-note <path> [--superseded-by <新笔记>]  # 一键归档；可选在新笔记插入互链 + 入站死链报告
 npm run check-anchors              # 软报告：若代码里有 // Note: 锚点，做双向体检；不当 CI 门
-npm run init-board                 # 生成 ~69KB 轻量看板 board.html（日常开发推荐）
-npm run bundle-board               # 打包内嵌全量数据的自包含 demo.html
 ```
 
-每个脚本都是独立 tsx（`scripts/*.ts`），也可 `npx tsx scripts/xxx.ts` 直接跑在任何目录；参数与免疫规则见 `references/verification.md`。看板要自定义输出路径时用 `npx tsx scripts/build-board.ts --init <目标.html> "名字"` / `--bundle <notes目录> <输出.html> "名字"`。团队可直接抄本仓库的 `.github/workflows/verify-notes.yml`，把 `verify-notes` 接进 CI；并在 `CONTRIBUTING.md` / PR 模板加一句「重要改动必带一篇笔记」。
+每个脚本都是独立 tsx（`scripts/*.ts`），也可 `npx tsx scripts/xxx.ts` 直接运行；参数与免疫规则见 `references/verification.md`。团队可直接复用本仓库的 `.github/workflows/verify-notes.yml`，把 `verify-notes` 接进 CI；并在 `CONTRIBUTING.md` / PR 模板加一句「重要改动必带一篇笔记」。
 
 ## References
 
