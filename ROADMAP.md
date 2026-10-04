@@ -1,4 +1,4 @@
-# Triton Fused Ops 路线图
+# trifuse 路线图
 
 > 定位：Triton kernel 与验证方法的**精简练习仓**，状态 **stable**（作品完成，只修正确性 bug 与文档；`phase-2-e` tag 记录 2026-08 面试就绪快照）。
 > 三条算子路径（fused_rmsnorm_rope / fused_gated_mlp / flash_attention）已具备

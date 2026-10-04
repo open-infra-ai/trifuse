@@ -181,6 +181,8 @@ class BenchmarkSuite:
 
         # Verify correctness
         is_correct = self.verifier.verify_allclose(triton_output, reference_output)
+        if not is_correct:
+            raise ValueError(f"{kernel_name}: correctness verification failed; timing rejected")
 
         metrics = measure_metrics(
             lambda: kernel_fn(*args, **kwargs),
@@ -230,6 +232,8 @@ class BenchmarkSuite:
 
         # Verify correctness
         is_correct = self.verifier.verify_allclose(triton_output, pytorch_output)
+        if not is_correct:
+            raise ValueError(f"{kernel_name}: correctness verification failed; comparison rejected")
 
         triton_metrics = measure_metrics(
             lambda: triton_fn(*args, **kwargs),
@@ -386,10 +390,11 @@ class BenchmarkSuite:
                                 x,
                                 gate_w,
                                 up_w,
-                                performance=perf_module.gemm(
+                                performance=perf_module.gated_mlp(
                                     M=batch * seq_len,
                                     N=inter_dim,
                                     K=hidden_dim,
+                                    bytes_per_element=x.element_size(),
                                 ),
                             )
                             results.append(result)

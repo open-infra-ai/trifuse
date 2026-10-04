@@ -1,4 +1,4 @@
-# TriFuse — Triton Fused Ops
+# trifuse
 
 > 📚 Portfolio map: https://github.com/open-infra-ai/open-infra-ai
 
@@ -118,22 +118,21 @@ python -m build
 **123/123 passed**。CI 使用 Hypothesis `ci` profile；本地默认使用较快的 `dev`
 profile。
 
-## 性能基准（真实 GPU 实测）
+## 性能测量与引用口径
 
-> 环境：**RTX 3060 Laptop（`sm_86`，6144 MiB）**，驱动 591.44，CUDA 12.1
-> （torch cu121），PyTorch **2.5.1**，Triton **3.1.0**，numpy 2.4.6，commit `ebf6c32+`。
-> 当前开发环境实测为 PyTorch **2.13.0** + Triton **3.7.1**。
-> 计时：CUDA 同步墙钟，预热后取中位数。数值为稳态延迟，与参考实现差分验证
-> 通过（`rtol=1e-2, atol=1e-2`，与测试套件一致）。
+本仓尚无能绑定完整环境、精确 commit 和逐次原始样本的正式性能结果包。
+历史 README 延迟表不作为当前性能证据；数值正确性测试也不构成速度优势。
 
-| 算子 | 配置 (M/batch, seq, hidden, inter) | 延迟 (ms) | 说明 |
-|------|-------------------------------------|-----------|------|
-| `fused_gated_mlp` (silu) | (1, 128, 4096, 11264) | **3.45** | 3 个 GEMM + SwiGLU |
-| `fused_gated_mlp` (gelu) | (1, 128, 4096, 11264) | **3.50** | 同上，gelu 用精确 erf（与参考一致） |
-| `fused_rmsnorm_rope` | (1, 128, 4096) | **0.104** | elementwise，带宽受限 |
-| `fused_rmsnorm_rope` | (1, 512, 4096) | **0.237** | |
-| `fused_rmsnorm_rope` | (4, 128, 4096) | **0.215** | |
-| `fused_rmsnorm_rope` | (4, 512, 4096) | **0.682** | |
+`fused_gated_mlp` 计算 `activation(x @ gate_w.T) * (x @ up_w.T)`，输出
+`[batch, seq, intermediate]`，只有两次 GEMM，**不包含 down projection**。
+令 `M=batch×seq`、`K=hidden`、`N=intermediate`，GEMM FLOPs 为 `4MNK`
+（不计激活和逐元素乘法）；逻辑 tensor bytes 为
+`(MK + 2KN + MN) × element_size`，共享输入只计一次。该 bytes 模型不是实测
+DRAM 流量，导出的带宽和利用率不是硬件计数器；利用率默认峰值参数也不是本机峰值。
+
+`BenchmarkSuite` 在数值验证失败时抛出 `ValueError`，不计时、不写结果或 speedup。
+`measure_latency` 返回预热后、两端 CUDA 同步的循环总墙钟时间除以调用次数，即
+每调用**均值**，包含 Python/launch 开销；它不是逐样本中位数或纯 GPU kernel 时间。
 
 复现（仓库内）：
 
@@ -146,11 +145,10 @@ python -m tests.benchmarks.bench_rmsnorm_rope
 #   BenchmarkSuite(warmup_runs=3, benchmark_runs=20).benchmark_gated_mlp(...)
 ```
 
-> 说明：`fused_gated_mlp` 的 FLOPs 为 3 个 GEMM（2×[M,K=4096,N=11264] +
-> 1×[M,K=11264,N=4096]）≈ 3.5e10，3.45ms 对应约 10 TFLOPS（RTX 3060 Laptop
-> FP16 理论峰值约 46 TFLOPS）。gelu 使用精确 erf 定义，kernel / CUDA 参考 /
-> CPU 参考三方一致；fp32 输入路径禁用 TF32 截断。数值正确性由
-> `tests/test_gated_mlp.py` 的差分测试覆盖。
+发布性能结论前须保存 GPU/driver、Torch/Triton、commit/dirty 状态、输入与 dtype、
+参考实现、容差、warmup/repeats 和原始计时样本，并报告失败与回退 shape。
+gelu 使用精确 erf 定义；fp32 输入路径禁用 TF32 截断。数值正确性由
+`tests/test_gated_mlp.py` 的差分测试覆盖，指标模型和拒绝计时门禁有 CPU 回归测试。
 
 ## 项目边界
 

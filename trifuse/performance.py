@@ -2,7 +2,7 @@
 Performance metric helpers for Triton fused operators.
 
 This module provides helpers for expressing kernel performance profiles
-(latency-only, elementwise, and GEMM) and for computing derived metrics
+(latency-only, elementwise, GEMM, and two-projection Gated MLP) and for computing derived metrics
 (throughput, bandwidth, utilization). Calculations are intentionally
 simple. MIN_LATENCY_MS is used as a zero-latency sentinel to avoid
 zero-division. See repo docstring style for details.
@@ -54,7 +54,7 @@ class PerformanceProfile:
     peak_bandwidth_gbps: float = 2039.0
 
     def __post_init__(self) -> None:
-        valid_kinds = {"latency", "elementwise", "gemm"}
+        valid_kinds = {"latency", "elementwise", "gemm", "gated_mlp"}
         if self.kind not in valid_kinds:
             raise ValueError(f"Unsupported performance profile kind: {self.kind!r}")
 
@@ -78,13 +78,13 @@ class PerformanceProfile:
             numel = self.dims[0]
             if not (isinstance(numel, int) and type(numel) is int) or numel <= 0:
                 raise ValueError("elementwise numel must be a positive int")
-        elif self.kind == "gemm":
+        elif self.kind in {"gemm", "gated_mlp"}:
             if len(self.dims) != 3:
-                raise ValueError("gemm profile dims must be a 3-tuple (M, N, K)")
+                raise ValueError(f"{self.kind} profile dims must be a 3-tuple (M, N, K)")
             M, N, K = self.dims
             for name, val in ("M", M), ("N", N), ("K", K):
                 if not (isinstance(val, int) and type(val) is int) or val <= 0:
-                    raise ValueError(f"{name} must be a positive int for gemm profiles")
+                    raise ValueError(f"{name} must be a positive int for {self.kind} profiles")
 
     def metrics(self, latency_ms: float) -> KernelMetrics:
         latency_ms = _normalize_latency(latency_ms)
@@ -103,10 +103,13 @@ class PerformanceProfile:
                 bandwidth_utilization=(bandwidth_gbps / self.peak_bandwidth_gbps) * 100,
             )
 
-        if self.kind == "gemm":
+        if self.kind in {"gemm", "gated_mlp"}:
             M, N, K = self.dims
-            flops = 2 * M * N * K
-            bytes_accessed = (M * K + K * N + M * N) * self.bytes_per_element
+            projections = 2 if self.kind == "gated_mlp" else 1
+            flops = projections * 2 * M * N * K
+            # Logical tensor traffic: shared input, projection weights, final output.
+            # This is not measured DRAM traffic; activation FLOPs are excluded.
+            bytes_accessed = (M * K + projections * K * N + M * N) * self.bytes_per_element
             tflops = flops / (latency_ms * 1e9)
             bandwidth_gbps = bytes_accessed / (latency_ms * 1e6)
             return KernelMetrics(
@@ -170,13 +173,29 @@ def gemm(
     )
 
 
+def gated_mlp(
+    *,
+    M: int,
+    N: int,
+    K: int,
+    bytes_per_element: int = 2,
+    peak_bandwidth_gbps: float = 2039.0,
+) -> PerformanceProfile:
+    return PerformanceProfile(
+        kind="gated_mlp",
+        dims=(M, N, K),
+        bytes_per_element=bytes_per_element,
+        peak_bandwidth_gbps=peak_bandwidth_gbps,
+    )
+
+
 def measure_latency(
     operation: Callable[[], object],
     *,
     warmup_runs: int = 10,
     benchmark_runs: int = 100,
 ) -> float:
-    """Measure operation latency in milliseconds with CUDA synchronization."""
+    """Measure mean wall-clock latency per call with CUDA synchronization."""
     if warmup_runs < 0:
         raise ValueError("warmup_runs must be non-negative")
     if benchmark_runs <= 0:

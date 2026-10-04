@@ -48,6 +48,22 @@ def test_invalid_profile_inputs_raise_value_error():
         performance.gemm(M=8, N=0, K=16)
 
 
+@pytest.mark.parametrize("bytes_per_element", [2, 4])
+def test_gated_mlp_counts_two_projections_and_shared_input(bytes_per_element):
+    profile = performance.gated_mlp(M=128, N=11264, K=4096, bytes_per_element=bytes_per_element)
+    metrics = profile.metrics(1.0)
+
+    assert metrics.throughput_tflops == pytest.approx(4 * 128 * 11264 * 4096 / 1e9)
+    assert metrics.bandwidth_gbps == pytest.approx(
+        (128 * 4096 + 2 * 4096 * 11264 + 128 * 11264) * bytes_per_element / 1e6
+    )
+
+
+def test_gated_mlp_rejects_invalid_dims():
+    with pytest.raises(ValueError, match="N must be a positive int"):
+        performance.gated_mlp(M=8, N=0, K=16)
+
+
 @pytest.mark.parametrize("latency", [-1.0, float("nan"), float("inf"), float("-inf")])
 def test_invalid_latency_raises_value_error(latency):
     with pytest.raises(ValueError):
