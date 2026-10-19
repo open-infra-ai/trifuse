@@ -10,10 +10,10 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
-    {name = "LessUp"}
+    {name = "holtwood"}
 ]
 maintainers = [
-    {name = "LessUp"}
+    {name = "holtwood"}
 ]
 keywords = [
     "triton",
